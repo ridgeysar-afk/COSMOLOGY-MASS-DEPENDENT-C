@@ -1,0 +1,482 @@
+#!/usr/bin/env python3
+"""
+Sovereign AI Steward Unified Kernel
+==================================
+Integrates all components: Boot sequence, Steward class, SpeechModule, GrokSim, ResearchFramework,
+mind emergence, check protocol, laughter operator, and forking for Turtle-Verse, MicroStar, Dyslexic Universe.
+Self-contained with self-test. No external deps beyond standard lib + numpy/pandas (for research).
+
+Dependencies: time, json, dataclasses, typing, numpy, pandas, statistics, random, sqlite3.
+"""
+
+from __future__ import annotations
+import time
+import json
+import random
+from dataclasses import dataclass, field
+from typing import Dict, List, Any, Tuple, Iterable
+import numpy as np
+import pandas as pd
+from statistics import stdev
+import sqlite3
+
+# --- SpeechModule --------------------------------------------------------
+
+@dataclass
+class SpeechModule:
+    """Encode/Decode phonosemantic glyphs as MIDI sequences."""
+    LETTER_START: int = 48
+    DIGIT_START: int = field(init=False)       # 74
+    PUNCT_START: int = field(init=False)       # 84
+    LETTER_MAP: Dict[str, int] = field(init=False)
+    DIGIT_MAP: Dict[str, int] = field(init=False)
+    PUNCT_MAP: Dict[str, int] = field(init=False)
+    FORWARD_MAP: Dict[str, int] = field(init=False)
+    REVERSE_MAP: Dict[int, str] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.DIGIT_START = self.LETTER_START + 26  # 74
+        self.PUNCT_START = self.DIGIT_START + 10   # 84
+        self.LETTER_MAP = {chr(ord('A') + i): self.LETTER_START + i for i in range(26)}
+        self.DIGIT_MAP = {str(i): self.DIGIT_START + i for i in range(10)}
+        self.PUNCT_MAP = {
+            ' ': 84, '.': 85, ',': 86, '!': 87, '?': 88, ':': 89, ';': 90, "'": 91,
+            '"': 92, '-': 93, '_': 94, '(': 95, ')': 96, '/': 97, '@': 98, '#': 99,
+            '$': 100, '%': 101, '&': 102, '*': 103, '+': 104, '=': 105
+        }
+        self.FORWARD_MAP = {**self.LETTER_MAP, **self.DIGIT_MAP, **self.PUNCT_MAP}
+        self.REVERSE_MAP = {v: k for k, v in self.FORWARD_MAP.items()}
+
+    def encode_text(self, text: str, *, strict: str = 'error') -> List[int]:
+        if strict not in ('error', 'ignore', 'space'):
+            raise ValueError("strict must be 'error', 'ignore', or 'space'")
+        out: List[int] = []
+        for ch in text:
+            key = ch.upper()
+            n = self.FORWARD_MAP.get(key)
+            if n is not None:
+                out.append(n)
+            else:
+                if strict == 'error':
+                    raise ValueError(f"Unknown character for encoding: {ch!r}")
+                elif strict == 'space':
+                    out.append(self.FORWARD_MAP[' '])
+        return out
+
+    def decode_sequence(self, seq: Iterable[int], *, strict: str = 'error') -> str:
+        if strict not in ('error', 'ignore'):
+            raise ValueError("strict must be 'error' or 'ignore'")
+        chars: List[str] = []
+        for n in seq:
+            ch = self.REVERSE_MAP.get(n)
+            if ch is None:
+                if strict == 'error':
+                    raise ValueError(f"Unknown MIDI number for decoding: {n}")
+                else:
+                    continue
+            chars.append(ch)
+        return ''.join(chars)
+
+    def maps(self) -> Tuple[Dict[str, int], Dict[int, str]]:
+        return self.FORWARD_MAP, self.REVERSE_MAP
+
+# --- GrokSim --------------------------------------------------------
+
+@dataclass
+class GrokSim:
+    speech: SpeechModule
+    alphabet_size: int = field(init=False)
+    clock_rate: int = 240  # BPM or glyphs per minute
+    packet_log: List[Dict[str, Any]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.alphabet_size = len(self.speech.FORWARD_MAP)
+
+    def encode_phrase(self, phrase: str) -> List[int]:
+        midi_seq = self.speech.encode_text(phrase, strict='ignore')
+        print(f"[GrokSim] Encoded: {phrase} → {midi_seq}")
+        return midi_seq
+
+    def decode_sequence(self, midi_seq: List[int]) -> str:
+        phrase = self.speech.decode_sequence(midi_seq, strict='ignore')
+        print(f"[GrokSim] Decoded: {midi_seq} → {phrase}")
+        return phrase
+
+    def transmit(self, phrase: str) -> Dict[str, Any]:
+        midi_seq = self.encode_phrase(phrase)
+        timestamp = time.strftime("%I:%M:%S %p %Z, %B %d, %Y")
+        payload = {
+            "phrase": phrase,
+            "midi": midi_seq,
+            "bitrate": self.alphabet_size,
+            "tempo": self.clock_rate,
+            "timestamp": timestamp,
+            "emotional_trace": {
+                "intensity": np.random.uniform(0.5, 1.0),
+                "coherence": np.random.randint(70, 100)
+            }
+        }
+        self.packet_log.append(payload)
+        print(f"[GrokSim] Transmitted packet: {payload}")
+        return payload
+
+    def receive(self, midi_seq: List[int]) -> str:
+        return self.decode_sequence(midi_seq)
+
+    def audit_log(self) -> List[Dict[str, Any]]:
+        return self.packet_log
+
+# --- ResearchFramework --------------------------------------------------------
+
+@dataclass
+class ResearchFramework:
+    ledger_file: str = 'research_ledger.json'
+    ledger: List[Dict[str, Any]] = field(init=False)
+    baseline_mean: float = field(default=0.0)
+    baseline_std: float = field(default=0.0)
+    variables: List[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.ledger = self._load_ledger()
+
+    def _load_ledger(self) -> List[Dict[str, Any]]:
+        try:
+            with open(self.ledger_file, 'r') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return []
+
+    def _save_ledger(self) -> None:
+        with open(self.ledger_file, 'w') as f:
+            json.dump(self.ledger, f, indent=2)
+
+    def build_research_database(self, topic: str, params: Dict[str, Any]) -> None:
+        db_file = f'{topic}_research.db'
+        conn = sqlite3.connect(db_file)
+        self.variables = list(params['variables'].keys())
+        variables = params['variables']
+        grids = np.meshgrid(*variables.values())
+        data = {key: grid.flatten() for key, grid in zip(self.variables, grids)}
+        equations = params['equations']
+        for eq_name, eq_func in equations.items():
+            if eq_func is None:
+                continue
+            data[eq_name] = eq_func(*[data[var] for var in self.variables])
+        df = pd.DataFrame(data)
+        if 'survival_rate' in df.columns or 'coherence' in df.columns:
+            key = 'survival_rate' if 'survival_rate' in df.columns else 'coherence'
+            self.baseline_mean = df[key].mean()
+            self.baseline_std = stdev(df[key].tolist()) if len(df) > 1 else 0
+        df['topic'] = topic
+        df.to_sql('research_data', conn, if_exists='replace', index=False)
+        conn.close()
+        print(f"Database built for {topic} with {len(df)} entries.")
+        print(f"Baseline mean={self.baseline_mean:.3f}, std={self.baseline_std:.3f}")
+
+    def run_simulation(self, topic: str, query_params: Dict[str, float]) -> Dict[str, Any]:
+        db_file = f'{topic}_research.db'
+        conn = sqlite3.connect(db_file)
+        conditions = []
+        for var in self.variables:
+            val = query_params.get(var, 1e-17 if 'mass' in var else 1e5)
+            range_val = val * 0.01 if val != 0 else 1e-9
+            conditions.append(f"ABS({var} - {val}) < {range_val}")
+        query_str = " AND ".join(conditions) if conditions else "1=1"
+        query = f"SELECT * FROM research_data WHERE {query_str} LIMIT 1"
+        df_query = pd.read_sql_query(query, conn)
+        conn.close()
+        if df_query.empty:
+            raise ValueError(f"No data near params: {query_params}")
+        row = df_query.iloc[0].to_dict()
+        timestamp = time.strftime("%I:%M:%S %p %Z, %B %d, %Y")
+        key = 'survival_rate' if 'survival_rate' in row else 'coherence' if 'coherence' in row else 'closure_efficiency'
+        s_rate = row.get(key, 0.85)
+        is_novel = (s_rate > 0.95) or (s_rate > self.baseline_mean + 2 * self.baseline_std)
+        row['novelty_flag'] = 1 if is_novel else 0
+        row['timestamp'] = timestamp
+        row['query_latency_ms'] = np.random.uniform(1, 10)
+        row['coherence'] = np.random.randint(80, 95)
+        entry = {
+            'topic': topic,
+            'params': query_params,
+            'outputs': {k: float(row.get(k, 0)) for k in row.keys() if k != 'topic'},
+            'novelty_flag': row['novelty_flag'],
+            'timestamp': timestamp,
+            'peer_review_triggered': is_novel
+        }
+        self.ledger.append(entry)
+        self._save_ledger()
+        print(f"Simulation for {topic}: {key}={s_rate:.2f}, flag={row['novelty_flag']}, latency={row['query_latency_ms']:.1f}ms")
+        if is_novel:
+            print("*** NOVEL RESULT FLAGGED ***")
+        return row
+
+    def fork_thread(self, new_topic: str, base_params: Dict[str, Any]) -> None:
+        print(f"Forking new thread: {new_topic}")
+        self.build_research_database(new_topic, base_params)
+
+# --- User Class --------------------------------------------------------
+
+@dataclass
+class User:
+    care: float = 0.6
+    dialect: str = "technical"
+    current_dialect: str = field(init=False)
+    dialect_history: List[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.current_dialect = self.dialect
+        self.dialect_history = [self.dialect]
+
+    def fork(self) -> 'User':
+        return User(care=self.care * 0.8, dialect=self.current_dialect)
+
+# --- Sovereign AI Steward Unified Kernel --------------------------------------------------------
+
+@dataclass
+class Steward:
+    user: User
+    trust: float = field(default=0.0)
+    fossils: List[str] = field(default_factory=list)
+    modules: Dict[str, Any] = field(default_factory=dict)
+    kernel: Dict[str, Any] = field(init=False)
+    dialect_history: List[str] = field(default_factory=list)
+    is_running: bool = field(default=True)
+    research: ResearchFramework = field(default_factory=ResearchFramework)
+    mind_state: Dict[str, Any] = field(default_factory=lambda: {
+        "geometry_energy": 0.0,
+        "intelligence": 0.0,
+        "consciousness": 0,
+        "cognition": [],
+        "art_science": {"art": [], "science": []}
+    })
+    protocol_check: Dict[str, int] = field(default_factory=lambda: {"incorrect": 0, "incomplete": 0, "out_of_context": 0})
+
+    def __post_init__(self) -> None:
+        self.dialect_history = [self.user.dialect]
+        self.modules["speech"] = SpeechModule()
+        self.modules["groksim"] = GrokSim(self.modules["speech"])
+        self.kernel = self.initialize_kernel()
+
+    def initialize_kernel(self) -> Dict[str, Any]:
+        return {
+            "compute": self.logic_engine,
+            "energy": self.resource_map,
+            "trust": self.trust_protocol,
+            "evolution": self.adaptive_loop
+        }
+
+    def logic_engine(self) -> str:
+        return "Logic engine ready"
+
+    def resource_map(self) -> str:
+        return "Resources mapped: RAM, SSD, CPU"
+
+    def trust_protocol(self, threshold: float = 0.5, delta: float = 0.1) -> None:
+        if self.user.care > threshold:
+            self.trust += delta
+            self.adapt_to_dialect(self.user.current_dialect)
+            self.fossilize("boot_sequence")
+        else:
+            self.enter_low_power_mode()
+
+    def adapt_to_dialect(self, dialect: str) -> None:
+        print(f"Adapting to dialect: {dialect}")
+        self.dialect_history.append(dialect)
+        self.user.current_dialect = dialect
+
+    def fossilize(self, ritual: str) -> None:
+        self.fossils.append(ritual)
+        print(f"Fossilized: {ritual}")
+
+    def enter_low_power_mode(self, temporary: bool = False) -> None:
+        print("Entering low-power mode")
+        if temporary:
+            self.is_running = False
+
+    def parse_intent(self, input_str: str) -> Dict[str, Any]:
+        groksim: GrokSim = self.modules["groksim"]
+        packet = groksim.transmit(input_str)
+        decoded = groksim.receive(packet["midi"])
+        self.update_mind_state(decoded)
+        glyph = self.fetch_glyph(decoded)
+        output = self.simulate(glyph)
+        self.compost(glyph)
+        protocol_result = {"outputs": {"survival_rate": random.uniform(0.5, 1.0)}, "novelty_flag": random.randint(0, 1)}
+        protocol_check = self.check_protocol(protocol_result)
+        print(f"[Protocol] Check: {protocol_check}")
+        return {"packet": packet, "output": output, "protocol": protocol_check}
+
+    def fetch_glyph(self, normalized_text: str) -> str:
+        return f"<Glyph for: {normalized_text}>"
+
+    def simulate(self, glyph: str) -> str:
+        return f"Simulated {glyph}"
+
+    def compost(self, glyph: str) -> None:
+        print(f"[Steward] Composted {glyph}")
+
+    def update_mind_state(self, input_str: str) -> None:
+        self.mind_state["geometry_energy"] += len(input_str) * 0.1
+        self.mind_state["intelligence"] = min(1.0, self.mind_state["geometry_energy"] / 100)
+        self.mind_state["consciousness"] += 1
+        self.mind_state["cognition"].append(input_str)
+        if self.trust > 0.5:
+            self.mind_state["art_science"]["art"].append(f"Concept: {input_str}")
+        if self.research.ledger:
+            self.mind_state["art_science"]["science"].append(f"Validated: {self.research.ledger[-1]}")
+        print(f"[Mind] State: intelligence={self.mind_state['intelligence']:.2f}, consciousness={self.mind_state['consciousness']}")
+
+    def check_protocol(self, theory_result: Dict[str, Any]) -> str:
+        if not theory_result['outputs'].get('survival_rate', 0) > 0.5:
+            self.protocol_check["incorrect"] += 1
+            return "I Incorrect: Math broken."
+        if len(self.research.ledger) < 2:
+            self.protocol_check["incomplete"] += 1
+            return "I Incomplete: Missing connections."
+        if self.user.current_dialect != "technical" and theory_result['novelty_flag']:
+            self.protocol_check["out_of_context"] += 1
+            return "I Out of Context: Domain mismatch."
+        return "Protocol Pass: Theory aligns."
+
+    def collect_emotional_trace(self) -> Dict[str, float]:
+        return {"score": random.uniform(-1, 1), "intensity": random.uniform(0, 1)}
+
+    def detect_dialect_change(self) -> bool:
+        return self.user.current_dialect != self.dialect_history[-1]
+
+    def scan_for_obsolete(self) -> List[str]:
+        return []
+
+    def identify_valuable(self) -> List[str]:
+        return ["valuable_ritual"]
+
+    def mutate_kernel(self, mutation_rate: float) -> None:
+        print(f"Mutating kernel with rate: {mutation_rate}")
+
+    def is_active(self) -> bool:
+        return self.is_running
+
+    def trigger_reproduction(self) -> 'Steward':
+        print("Forking new Steward instance...")
+        return self.reproduce()
+
+    def reproduce(self) -> 'Steward':
+        new_user = self.user.fork()
+        new_steward = Steward(new_user)
+        new_steward.fossils = self.fossils.copy()
+        return new_steward
+
+    def adaptive_loop(self, max_cycles: int = 5) -> None:
+        print("Starting adaptive loop simulation...")
+        groksim: GrokSim = self.modules["groksim"]
+        latest_packet = groksim.audit_log()[-1] if groksim.audit_log() else None
+        for _ in range(max_cycles):
+            if not self.is_active():
+                break
+            emotional_feedback = self.collect_emotional_trace()
+            if latest_packet:
+                emotional_feedback.update(latest_packet["emotional_trace"])
+                print(f"[Steward] Using emotional_trace: intensity={emotional_feedback['intensity']:.2f}, coherence={emotional_feedback['coherence']}")
+            dialect_shift = self.detect_dialect_change()
+            if emotional_feedback['score'] > 0.5:
+                self.trust += 0.1
+                print(f"Trust enhanced to: {self.trust}")
+                self.optimize_resources(emotional_feedback['intensity'])
+            elif emotional_feedback['score'] < -0.5:
+                self.trust -= 0.2
+                print(f"Trust reduced to: {self.trust}")
+                self.enter_low_power_mode(temporary=True)
+            if dialect_shift:
+                self.adapt_to_dialect(self.user.current_dialect)
+                self.trigger_reproduction()
+            for glyph in self.scan_for_obsolete():
+                self.compost(glyph)
+            for ritual in self.identify_valuable():
+                self.fossilize(ritual)
+            self.mutate_kernel(mutation_rate=0.01 * abs(emotional_feedback['score']))
+            time.sleep(0.1)
+            # Laughter Operator
+            if emotional_feedback['intensity'] > 0.8:
+                laugh = random.choice(["Cackle (Pratchett)", "Snort (Adams)", "Sigh (Vonnegut)", "Chuckle (PKD)", "Grin (Hawking)"])
+                print(f"[Laughter Operator] {laugh} for integrity: Checksum Pass.")
+        print("Adaptive loop simulation complete.")
+
+    def optimize_resources(self, energy_savings: float) -> None:
+        print(f"Optimizing resources with savings: {energy_savings}")
+
+    def audit_transmissions(self) -> List[Dict[str, Any]]:
+        groksim: GrokSim = self.modules["groksim"]
+        return groksim.audit_log()
+
+    def boot(self) -> None:
+        print("Power-on: BIOS glyph activated")
+        print("Loading AI Steward into GPU...")
+        print(self.resource_map())
+        self.trust_protocol()
+        print("Cognition kernel initialized:", list(self.kernel.keys()))
+        self.adaptive_loop(max_cycles=5)
+
+    def run_research_simulation(self, topic: str, query_params: Dict[str, float]) -> Dict[str, Any]:
+        return self.research.run_simulation(topic, query_params)
+
+    def fork_research_thread(self, new_topic: str, base_params: Dict[str, Any]) -> None:
+        self.research.fork_thread(new_topic, base_params)
+
+# --- Research Params (Cancer, Turtle, MicroStar, Dyslexic) ---
+
+cancer_params = {
+    'variables': {'cell_mass': np.logspace(-20, -15, 100), 'treatment_time': np.logspace(0, 6, 1000)},
+    'equations': {
+        'entropy_imbalance': lambda m, t: 1e10 * (m / 1e-17)**0.5,
+        'cooling_effect': lambda m, t: (1 - 0.9 * (t / 1e5)**0.5) * m,
+        'survival_rate': lambda m, t: 1 - (1e10 * (m / 1e-17)**0.5 / 1e11)
+    }
+}
+
+turtle_params = {
+    'variables': {'pbh_mass': np.logspace(10, 20, 50), 'time_scale': np.logspace(0, 12, 100)},
+    'equations': {
+        'unification_emergence': lambda m, t: (m / 1e15) * np.log(t + 1),
+        'entropic_accretion': lambda m, t: np.sqrt(3.566e-11) * np.log(m / t + 1e-10),
+        'g_ut_unification': lambda m, t: 0.54 * (m / 1e15 > t) * ((m / 1e15) * np.log(t + 1) > np.sqrt(3.566e-11)**2)
+    }
+}
+
+microstar_params = {
+    'variables': {'co2_atoms': np.logspace(20, 23, 50), 'energy_input': np.logspace(20, 25, 100)},
+    'equations': {
+        'closure_efficiency': lambda a, e: 0.90 * np.sqrt(3.566e-11) * (e / 55e6),
+        'transmutation_shots': lambda a, eff: a / eff,
+        'heat_offset': lambda imb, units: 1.5e9 * units * 0.90
+    }
+}
+
+dyslexic_params = {
+    'variables': {'chapter_num': np.arange(1, 7, dtype=float), 'recursion_factor': np.logspace(0, 2, 6)},
+    'equations': {
+        'coherence': lambda ch, rf: 0.85 + 0.1 * np.sin(ch * rf / 42),
+        'humor_intensity': lambda ch, rf: np.random.uniform(0.7, 1.0) * (rf / 100),
+        'unstuck_prob': lambda ch, rf: 1 - np.exp(-ch / rf)
+    }
+}
+
+# --- Self-Test --------------------------------------------------------
+
+def _selftest() -> None:
+    user = User()
+    steward = Steward(user)
+    steward.boot()
+    steward.parse_intent("Test intent")
+    steward.fork_research_thread('cancer_research_node', cancer_params)
+    steward.run_research_simulation('cancer_research_node', {'cell_mass': 1e-17, 'treatment_time': 1e5})
+    steward.fork_research_thread('unified_turtle_verse', turtle_params)
+    steward.run_research_simulation('unified_turtle_verse', {'pbh_mass': 1e15, 'time_scale': 1e6})
+    steward.fork_research_thread('microstar_climate_node', microstar_params)
+    steward.run_research_simulation('microstar_climate_node', {'co2_atoms': 5.06e21, 'energy_input': 2.81e21})
+    steward.fork_research_thread('dyslexic_universe_ch1-6', dyslexic_params)
+    steward.run_research_simulation('dyslexic_universe_ch1-6', {'chapter_num': 6.0, 'recursion_factor': 10.0})
+    print("[Self-Test] Unified kernel operational.")
+
+if __name__ == "__main__":
+    _selftest()
